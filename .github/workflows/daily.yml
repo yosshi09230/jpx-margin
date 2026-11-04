@@ -2,8 +2,11 @@ name: daily-update
 
 on:
   schedule:
-    - cron: "0 10 * * 1-5"    # 平日 19:00 JST（JPX公表 16:00頃の後）
-    - cron: "30 12 * * 1-5"   # 平日 21:30 JST（取りこぼし時の再試行。取得済みなら何もしない）
+    # GitHubの定時実行は遅延・取りこぼしがあるため複数回。新しいPDFが無ければ2回目以降は即終了
+    - cron: "17 10 * * 1-5"   # 平日 19:17 JST（JPX公表 16:00頃の後）
+    - cron: "47 11 * * 1-5"   # 平日 20:47 JST
+    - cron: "23 13 * * 1-5"   # 平日 22:23 JST
+    - cron: "41 23 * * 0-4"   # 翌朝 8:41 JST（前日分の最終確認）
   workflow_dispatch:           # 手動実行（Actions タブ → Run workflow）
   push:
     branches: [main]
@@ -60,8 +63,11 @@ jobs:
           fi
 
       - uses: actions/configure-pages@v5
+        if: hashFiles('_site/index.html') != ''
       - uses: actions/upload-pages-artifact@v3
+        if: hashFiles('_site/index.html') != ''
         with:
           path: _site
       - id: deploy
+        if: hashFiles('_site/index.html') != ''
         uses: actions/deploy-pages@v4

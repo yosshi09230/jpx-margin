@@ -147,3 +147,15 @@ def validate(rows, totals):
         if (r.get("buy_gen") or 0) + (r.get("buy_std") or 0) != r["buy"]:
             errs.append("買内訳不一致: %s" % r["code"])
     return errs
+
+
+def parse_published(path):
+    """PDF見出しの公表日 'YYYY-MM-DD'（例: '2026/10/30申込み現在 ... 2026/11/2'）"""
+    with pdfplumber.open(path) as pdf:
+        t = pdf.pages[0].extract_text() or ""
+    for line in t.split("\n"):
+        if "申込み現在" in line:
+            m = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})\s*$", line.strip())
+            if m:
+                return "%s-%02d-%02d" % (m.group(1), int(m.group(2)), int(m.group(3)))
+    return None

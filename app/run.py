@@ -9,7 +9,7 @@ import argparse
 import fetch
 import build
 import notify
-from common import log, load_settings, load_state, save_state, normalize_code
+from common import log, load_settings, load_state, save_state, normalize_code, now_jst
 
 
 def main():
@@ -30,7 +30,15 @@ def main():
             errors.append("%s: %s" % (name, str(e)[:200]))
 
     if not args.no_fetch:
-        step("信用残PDF", fetch.fetch_margin)
+        new = step("信用残PDF", fetch.fetch_margin)
+        have = fetch.have_margin_dates()
+        latest = have[-1] if have else None
+        if new == [] and latest and state.get("processed_latest") == latest:
+            # 再試行枠: 新しいPDFが無く、最新分はすでに全処理済み → 何もしない（公開もしない）
+            log.info("新しいデータなし（最新 %s は処理済み）のためスキップ", latest)
+            return 0
+        state["processed_latest"] = latest
+        state["last_full_run"] = now_jst().isoformat(timespec="seconds")
         step("上場銘柄一覧", lambda: fetch.fetch_listed(state, cfg))
         step("日経225", lambda: fetch.fetch_nikkei(state, cfg))
         dates = fetch.have_margin_dates()

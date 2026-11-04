@@ -94,6 +94,11 @@ select,.fgrid input{font-size:15px;padding:8px;border-radius:10px;border:1px sol
 .help p,.help li{font-size:14px;line-height:1.75;color:var(--t2)}
 .help b{color:var(--t1)}
 .help h3{font-size:15px;margin:18px 0 4px}
+.dmeta{font-size:11px;color:var(--t2);line-height:1.6;margin:6px 0 4px}
+.pn{padding:10px 10px 4px}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:2px}
+.ph h3{font-size:13px;margin:0}
+.ph span{font-size:11.5px}
 .more{display:block;width:100%;margin:10px 0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--accent);font-size:14px}
 </style>
 </head>
@@ -322,48 +327,105 @@ function viewHelp(){
   <p class="note">信用残：日本取引所グループ（JPX）。株価：Yahoo!ファイナンス（非公式取得のため取れない日があります）。売買の判断はご自身の責任で。</p></div>`;
 }
 
-// ---- 銘柄詳細
-let PERIOD='3m';
+// ---- 銘柄詳細（4段グラフ・日付軸そろえ・なぞり連動）
+const DS={period:'3m',type:'rs',unit:'sh'};
+try{Object.assign(DS,JSON.parse(localStorage.getItem('jpxm_detail')||'{}'))}catch(e){}
+const saveDS=()=>{try{localStorage.setItem('jpxm_detail',JSON.stringify(DS))}catch(e){}};
+const TYPE={rs:{t:'制度',b:'bs',s:'ss',vb:'vbs',vs:'vss'},rg:{t:'一般',b:'bg',s:'sg',vb:'vbg',vs:'vsg'},ra:{t:'合計',b:'b',s:'s',vb:'vb',vs:'vs'}};
+const sgn=v=>v>0?'+':v<0?'−':'±';
+const fSh=v=>v==null?'―':Math.abs(v)>=1e4?(v/1e4).toLocaleString('ja-JP',{minimumFractionDigits:1,maximumFractionDigits:1})+'万株':Math.round(v).toLocaleString()+'株';
+const fOku=v=>v==null?'―':(Math.abs(v)>=100?Math.round(v).toLocaleString():Number(v).toLocaleString('ja-JP',{maximumFractionDigits:2}))+'億円';
+const fYen=v=>v==null?'―':Number(v).toLocaleString('ja-JP',{maximumFractionDigits:1})+'円';
+const fX=v=>v==null?'―':Number(v).toFixed(2)+'倍';
+const absF=(f,v)=>f(Math.abs(v));
+const PCOL=()=>matchMedia('(prefers-color-scheme: dark)').matches?['#7fa7d9','#ef7d6e','#5fc08a','#b78be0']:['#2c4f7c','#c0392b','#2e7d4f','#7b3fa0'];
+
+function panelChart(box,labels,data,color,fmt,axFmt,opt={}){
+  const W=box.clientWidth||340,H=opt.h||190,n=labels.length;
+  const rot=n>8,L=50,Rm=opt.rm||48,T=10,B=rot?40:22,pw=W-L-Rm,ph=H-T-B;
+  const vals=data.filter(v=>v!=null);
+  if(!vals.length){box.innerHTML='<div class="note" style="padding:20px 0">データなし</div>';return{set(){},clear(){}};}
+  let lo=Math.min(...vals),hi=Math.max(...vals);
+  if(opt.zero)lo=Math.min(0,lo);else{const p=(hi-lo)*.1||Math.abs(hi)*.05||1;const nn=lo>=0;lo-=p;hi+=p;if(nn&&lo<0)lo=0;}
+  const tk=niceTicks(lo,hi,4);lo=tk[0];hi=tk[tk.length-1];
+  const X=i=>L+(n<=1?pw/2:i*pw/(n-1)),Y=v=>T+ph-(v-lo)/(hi-lo)*ph;
+  const grid=css('--grid'),t2=css('--t2'),t3=css('--t3'),line=css('--line'),surf=css('--surface');
+  let g='';
+  tk.forEach(t=>{g+=`<line x1="${L}" x2="${W-Rm}" y1="${Y(t)}" y2="${Y(t)}" stroke="${grid}"/><text x="${L-5}" y="${Y(t)+3.5}" text-anchor="end" font-size="9.5" fill="${t2}">${axFmt(t)}</text>`;});
+  const step=n<=31?1:Math.ceil(n/14);
+  for(let i=0;i<n;i++){ if(i%step&&i!==n-1)continue; const x=X(i),lab=labels[i].slice(5).replace(/^0/,'').replace('-0','/').replace('-','/');
+    g+=`<line x1="${x}" x2="${x}" y1="${T}" y2="${T+ph}" stroke="${grid}" stroke-width=".6"/>`;
+    g+=rot?`<text transform="translate(${x+3},${T+ph+8}) rotate(-50)" text-anchor="end" font-size="9" fill="${t2}">${lab}</text>`:`<text x="${x}" y="${H-6}" text-anchor="middle" font-size="9" fill="${t2}">${lab}</text>`;}
+  (opt.marks||[]).forEach(mk=>{const i=labels.findIndex(d=>d>=mk.date);if(i>0){const x=(X(i-1)+X(i))/2;g+=`<line x1="${x}" x2="${x}" y1="${T}" y2="${T+ph}" stroke="${t3}" stroke-dasharray="3,3"/><text x="${x+3}" y="${T+9}" font-size="9" fill="${t3}">${mk.label}</text>`;}});
+  g+=`<rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="none" stroke="${line}"/>`;
+  let d='',pen=false;data.forEach((v,i)=>{if(v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
+  g+=`<path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>`;
+  if(n<=60)data.forEach((v,i)=>{if(v!=null)g+=`<circle cx="${X(i)}" cy="${Y(v)}" r="3.2" fill="${color}" stroke="${surf}" stroke-width="1.2"/>`;});
+  let li=-1;for(let i=n-1;i>=0;i--)if(data[i]!=null){li=i;break;}
+  if(li>=0){const lb=(opt.lbl||fmt)(data[li]),right=X(li)+5+lb.length*6>W;g+=`<text x="${right?X(li)-5:X(li)+5}" y="${Y(data[li])-7}" text-anchor="${right?'end':'start'}" font-size="10" font-weight="600" fill="${color}">${lb}</text>`;}
+  g+=`<line class="xh" x1="0" x2="0" y1="${T}" y2="${T+ph}" stroke="${t2}" stroke-dasharray="3,3" style="display:none"/><circle class="xp" r="5" fill="${color}" stroke="${surf}" stroke-width="2" style="display:none"/>`;
+  box.innerHTML=`<div class="cv" style="height:${H}px"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${g}<rect class="hit" x="${L}" y="0" width="${pw}" height="${H}" fill="transparent"/></svg><div class="tip"></div></div>`;
+  const svg=box.querySelector('svg'),xh=svg.querySelector('.xh'),xp=svg.querySelector('.xp'),tip=box.querySelector('.tip');
+  const api={
+    idx(cx){const rc=svg.getBoundingClientRect(),mx=(cx-rc.left)*W/rc.width;return Math.max(0,Math.min(n-1,n<=1?0:Math.round((mx-L)/pw*(n-1))));},
+    set(i){const x=X(i);xh.setAttribute('x1',x);xh.setAttribute('x2',x);xh.style.display='';
+      if(data[i]!=null){xp.setAttribute('cx',x);xp.setAttribute('cy',Y(data[i]));xp.style.display='';}else xp.style.display='none';
+      tip.innerHTML=`<span class="mut">${labels[i].slice(5).replace('-','/')}</span> <b style="color:${color}">${fmt(data[i])}</b>`;tip.style.display='block';
+      const rc=svg.getBoundingClientRect(),px=x*rc.width/W;tip.style.left=(px+tip.offsetWidth+12>rc.width?px-tip.offsetWidth-6:px+6)+'px';tip.style.top='2px';},
+    clear(){xh.style.display='none';xp.style.display='none';tip.style.display='none';},svg};
+  return api;
+}
+
 async function viewDetail(code){
-  setTab('',code);
+  setTab('','銘柄詳細');
   const r=BY[code]||{c:code};
-  $('title').textContent=r.n||code;
-  const starBtn=()=>isGH(code)?'<span class="starbtn on">★ ウォッチ登録済</span>':`<button class="starbtn ${isLocal(code)?'on':''}" id="star">${isLocal(code)?'★ この端末でウォッチ中':'☆ ウォッチ'}</button>`;
-  const kpi=(k,v,s)=>`<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const starBtn=isGH(code)?'<span class="starbtn on">★ 登録済</span>':`<button class="starbtn ${isLocal(code)?'on':''}" id="star">${isLocal(code)?'★ この端末':'☆ ウォッチ'}</button>`;
+  const seg=(id,items,v)=>`<div class="seg" id="${id}">${items.map(([k,t])=>`<button data-k="${k}" class="${k===v?'on':''}">${t}</button>`).join('')}</div>`;
   app.innerHTML=`<a class="back" href="javascript:history.back()">‹ 戻る</a>
-   <div class="dh"><div><div class="nm" style="font-size:19px">${esc(r.n||code)}${tags(r)}</div><div class="cd">${esc(code)} ・ ${esc([r.mk,r.s33,r.sz,r.lt].filter(Boolean).join(' ／ '))}</div></div>${starBtn()}</div>
+   <div class="dh"><div><div class="nm" style="font-size:18px">${esc(r.n||code)}（${esc(code)}）${tags(r)}</div>
+     <div class="cd">${esc([r.mk,r.s33,r.lt].filter(Boolean).join(' ／ '))}</div></div>${starBtn}</div>
+   <div class="dmeta" id="dmeta"></div>
+   ${seg('s_per',[['1m','1か月'],['3m','3か月'],['6m','6か月'],['all','全期間']],DS.period)}
+   <div style="display:flex;gap:8px"><div style="flex:3">${seg('s_type',[['ra','合計'],['rs','制度'],['rg','一般']],DS.type)}</div><div style="flex:2">${seg('s_unit',[['sh','株数'],['val','金額']],DS.unit)}</div></div>
+   <div class="card pn"><div class="ph"><h3>① 株価終値（円）</h3><span id="h1"></span></div><div id="p1"></div></div>
+   <div class="card pn"><div class="ph"><h3 id="t2"></h3><span id="h2"></span></div><div id="p2"></div></div>
+   <div class="card pn"><div class="ph"><h3 id="t3"></h3><span id="h3"></span></div><div id="p3"></div></div>
+   <div class="card pn"><div class="ph"><h3 id="t4"></h3><span id="h4"></span></div><div id="p4"></div></div>
    <div class="kpis">
-    ${kpi('制度信用倍率',R(r.rs),'前日 '+D(r.rs_d1)+' ／ 前週 '+D(r.rs_d5))}
-    ${kpi('一般信用倍率',R(r.rg),'前日 '+D(r.rg_d1)+' ／ 前週 '+D(r.rg_d5))}
-    ${kpi('合計信用倍率',R(r.ra),'前日 '+D(r.ra_d1)+' ／ 前週 '+D(r.ra_d5))}
-    ${kpi('株価',PX(r.px),'前日比 '+P(r.pxc))}
-    ${kpi('制度 買残',N(r.bs),'前週比 '+P(r.bs_pct5))}
-    ${kpi('制度 売残',N(r.ss),'前週比 '+P(r.ss_pct5))}
-    ${kpi('一般 買残',N(r.bg),'前週比 '+P(r.bg_pct5))}
-    ${kpi('一般 売残',N(r.sg),'前週比 '+P(r.sg_pct5))}
-    ${kpi('時価総額',MC(r),r.br!=null?'買残 上場比 '+r.br.toFixed(1)+'%':'')}
-    ${kpi('買残/出来高',r.days==null?N(null):r.days.toFixed(1)+'日','直近20日平均出来高比')}
-   </div>
-   <div class="seg" id="per">${[['1m','1か月'],['3m','3か月'],['6m','6か月'],['all','全期間']].map(([k,t])=>`<button data-k="${k}" class="${k===PERIOD?'on':''}">${t}</button>`).join('')}</div>
-   <div class="card ch"><h3>信用倍率</h3><div id="c1"></div><div class="note">売残が0の日は線が途切れます</div></div>
-   <div class="card ch"><h3>制度信用 買残・売残（株）</h3><div id="c2"></div></div>
-   <div class="card ch"><h3>一般信用 買残・売残（株）</h3><div id="c3"></div></div>
-   <div class="card ch"><h3>株価（終値）</h3><div id="c4"></div></div>`;
+     <div class="kpi"><div class="k">時価総額</div><div class="v">${MC(r)}</div><div class="s">${r.br!=null?'買残 上場比 '+r.br.toFixed(1)+'%':''}</div></div>
+     <div class="kpi"><div class="k">買残/出来高</div><div class="v">${r.days==null?N(null):r.days.toFixed(1)+'日'}</div><div class="s">直近20日平均出来高比</div></div>
+   </div>`;
   const sb=$('star');if(sb)sb.onclick=()=>{LOCAL=isLocal(code)?LOCAL.filter(x=>x!==code):[...LOCAL,code];saveLocal();viewDetail(code);};
   const h=await hist(code);
+  if(!h){$('p1').innerHTML='<div class="empty">履歴データがありません</div>';return;}
   const draw=()=>{
-    if(!h){$('c1').innerHTML='<div class="empty">履歴データがありません</div>';return;}
-    const days={'1m':31,'3m':92,'6m':183,'all':99999}[PERIOD];
-    const from=new Date(Date.parse(h.d[h.d.length-1])-days*864e5).toISOString().slice(0,10);
-    let i=h.d.findIndex(d=>d>=from);if(i<0)i=0;
-    const sl=a=>a.slice(i),L=sl(h.d),s1=css('--s1'),s2=css('--s2'),s3=css('--s3');
-    lineChart($('c1'),L,[{label:'制度',data:sl(h.rs),color:s1},{label:'一般',data:sl(h.rg),color:s2},{label:'合計',data:sl(h.ra),color:s3}]);
-    lineChart($('c2'),L,[{label:'買残',data:sl(h.bs),color:s1},{label:'売残',data:sl(h.ss),color:s2}],{zero:true});
-    lineChart($('c3'),L,[{label:'買残',data:sl(h.bg),color:s1},{label:'売残',data:sl(h.sg),color:s2}],{zero:true});
-    if(h.pd){let j=h.pd.findIndex(d=>d>=from);if(j<0)j=0;lineChart($('c4'),h.pd.slice(j),[{label:'終値',data:h.pc.slice(j),color:s1}]);}
-    else $('c4').innerHTML='<div class="note">株価データ未取得</div>';
+    const days={'1m':31,'3m':92,'6m':183,'all':1e6}[DS.period];
+    const last=h.d[h.d.length-1], from=new Date(Date.parse(last)-days*864e5).toISOString().slice(0,10);
+    let i0=h.d.findIndex(d=>d>=from);if(i0<0)i0=0;
+    const sl=a=>(a||[]).slice(i0), D_=sl(h.d), T=TYPE[DS.type], val=DS.unit==='val';
+    const px=sl(h.px), b=sl(val?h[T.vb]:h[T.b]), s_=sl(val?h[T.vs]:h[T.s]), ra=sl(h[DS.type]);
+    const [c1,c2,c3,c4]=PCOL(), fq=val?fOku:fSh, axq=val?(v=>fmtAx(v)):(v=>fmtAx(v));
+    const pub=(S.published||{})[last];
+    const sp=(h.splits||[]).filter(x=>x.date>D_[0]);
+    $('dmeta').innerHTML=`対象期間：${D_[0]}〜${last}（基準日・${D_.length}営業日）<br>最新基準日：${last}${pub?'　公表日：'+pub:''}<br>
+      <span class="mut">出典：JPX 銘柄別信用取引残高（日次）／株価は基準日の終値（Yahoo!ファイナンス）。${sp.map(x=>`${x.date.slice(5).replace('-','/')}に1→${x.ratio}分割：それ以前の残高株数は×${x.ratio}で調整（倍率・金額は調整なし）。`).join('')}</span>`;
+    const marks=sp.map(x=>({date:x.date,label:x.date.slice(5).replace('-','/')+' 分割'}));
+    const head=(arr,f,col,unitLbl)=>{let i=arr.length-1;while(i>=0&&arr[i]==null)i--;if(i<0)return '';let j=i-1;while(j>=0&&arr[j]==null)j--;
+      const dv=j>=0?arr[i]-arr[j]:null;return `<span style="color:${col}">最新 <b>${f(arr[i])}</b>${dv==null?'':`（${unitLbl}${sgn(dv)}${absF(f,dv)}）`}</span>`;};
+    $('t2').textContent=`② 信用買残（${T.t}・${val?'金額':'株数'}）`;$('t3').textContent=`③ 信用売残（${T.t}・${val?'金額':'株数'}）`;
+    $('t4').textContent=`④ 信用倍率（${T.t}・買残÷売残・株数ベース）`;
+    $('h1').innerHTML=head(px,fYen,c1,'前営業日比 ');$('h2').innerHTML=head(b,fq,c2,'');$('h3').innerHTML=head(s_,fq,c3,'');$('h4').innerHTML=head(ra,fX,c4,'前営業日比 ');
+    const cmp=v=>val?fmtAx(v)+'億':fmtAx(v);
+    const P=[panelChart($('p1'),D_,px,c1,fYen,v=>v.toLocaleString('ja-JP',{maximumFractionDigits:1}),{marks,lbl:v=>Math.round(v).toLocaleString()}),
+             panelChart($('p2'),D_,b,c2,fq,axq,{marks,lbl:cmp}),
+             panelChart($('p3'),D_,s_,c3,fq,axq,{marks,lbl:cmp}),panelChart($('p4'),D_,ra,c4,fX,v=>fmtAx(v),{marks,lbl:v=>v.toFixed(2)+'倍'})];
+    // なぞり連動
+    let hideT;const move=(cx,src)=>{clearTimeout(hideT);const i=src.idx(cx);P.forEach(p=>p.set&&p.svg&&p.set(i));};
+    const end=()=>{hideT=setTimeout(()=>P.forEach(p=>p.clear()),1800);};
+    P.forEach(p=>{if(!p.svg)return;p.svg.addEventListener('pointermove',e=>move(e.clientX,p));p.svg.addEventListener('pointerdown',e=>move(e.clientX,p));p.svg.addEventListener('pointerleave',end);p.svg.addEventListener('pointerup',end);});
   };
-  $('per').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;PERIOD=b.dataset.k;[...$('per').children].forEach(x=>x.classList.toggle('on',x===b));draw();};
+  const bindSeg=(id,key)=>{$(id).onclick=e=>{const btn=e.target.closest('[data-k]');if(!btn)return;DS[key]=btn.dataset.k;saveDS();[...$(id).children].forEach(x=>x.classList.toggle('on',x===btn));draw();};};
+  bindSeg('s_per','period');bindSeg('s_type','type');bindSeg('s_unit','unit');
   draw();
 }
 

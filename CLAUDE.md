@@ -37,7 +37,9 @@ site/                    画面（index.html, manifest, アイコン）
 data/margin/YYYY/YYYYMMDD.csv.gz   信用残（日付=申込日）。過去分はJPXに5営業日分しか無いので消さないこと
 data/prices/YYYY/YYYYMMDD.csv      株価（終値・出来高）
 data/listed.csv, nikkei225.csv, shares.csv, state.json
-.github/workflows/daily.yml        平日19:00/21:30 JST 実行 → data をコミット → GitHub Pages に公開
+data/margin_meta.csv     申込日ごとの公表日（PDF見出しから）
+data/splits.csv          株式分割（yfinanceのStock Splits）。build.pyで分割前の残高株数×比率に調整
+daily.yml: 平日19:17/20:47/22:23 JST＋翌朝8:41 JST 実行（新PDFが無く処理済みなら即終了） → data をコミット → GitHub Pages に公開
 ```
 - 通知先 ntfy のトピック名はリポジトリ Secret `NTFY_TOPIC`（公開リポジトリのためファイルに書かない）。
 - `_site/` はコミットしない（Pages artifact として公開）。
@@ -52,3 +54,4 @@ data/listed.csv, nikkei225.csv, shares.csv, state.json
 - 株価・発行済株数は yfinance（非公式）。取れない日はあっても信用残の蓄積は止まらない。
 - 前週比は6営業日分、前日比は2営業日分のデータが溜まってから計算される。
 - 新規上場銘柄は前日比が空欄（None）になる。
+- 銘柄詳細は4段グラフ（株価/買残/売残/倍率、日付軸共通・なぞり連動）。合計/制度/一般・株数/金額・期間の切替は端末に記憶。JPXの訂正データの網掛けは未対応。

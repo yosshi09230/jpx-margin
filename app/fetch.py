@@ -13,7 +13,7 @@ import pandas as pd
 
 import pdf_parser
 from common import (log, http_get, now_jst, days_since, normalize_code,
-                    MARGIN_DIR, PRICE_DIR, LISTED_CSV, NIKKEI_CSV, SHARES_CSV,
+                    MARGIN_DIR, PRICE_DIR, LISTED_CSV, NIKKEI_CSV, SHARES_CSV, META_CSV, SPLITS_CSV,
                     MARGIN_PAGE, LISTED_PAGE, NIKKEI_PAGE)
 
 MARGIN_COLS = (["code", "lend_type", "unit"] + pdf_parser.COL_NAMES +
@@ -40,7 +40,11 @@ def save_margin(pdf_path):
     p = margin_path(ymd)
     os.makedirs(os.path.dirname(p), exist_ok=True)
     df.to_csv(p, index=False, compression={"method": "gzip", "mtime": 0})
-    log.info("信用残 保存 %s: %d 銘柄", as_of, len(df))
+    pub = pdf_parser.parse_published(pdf_path)
+    meta = pd.read_csv(META_CSV, dtype=str) if os.path.exists(META_CSV) else pd.DataFrame(columns=["date", "published"])
+    meta = pd.concat([meta[meta.date != as_of], pd.DataFrame([{"date": as_of, "published": pub}])]).sort_values("date")
+    meta.to_csv(META_CSV, index=False)
+    log.info("信用残 保存 %s（公表 %s）: %d 銘柄", as_of, pub, len(df))
     return ymd
 
 
@@ -119,12 +123,12 @@ def fetch_prices(cfg, codes):
     first = not price_files()
     period = cfg["price_history_period"] if first else "1mo"
     tick = [c for c in codes if len(c) == 4]
-    frames = []
+    frames, splits = [], []
     for i in range(0, len(tick), 150):
         chunk = tick[i:i + 150]
         try:
             df = yf.download([c + ".T" for c in chunk], period=period, interval="1d",
-                             group_by="ticker", auto_adjust=False, progress=False, threads=True)
+                             group_by="ticker", auto_adjust=False, actions=True, progress=False, threads=True)
         except Exception as e:
             log.warning("株価取得失敗 (%d-): %s", i, e)
             continue
@@ -137,6 +141,10 @@ def fetch_prices(cfg, codes):
                 continue
             if "Close" not in sub:
                 continue
+            if "Stock Splits" in sub:
+                sp = sub["Stock Splits"].fillna(0)
+                for d, ratio in sp[sp > 0].items():
+                    splits.append({"code": c, "date": d.strftime("%Y-%m-%d"), "ratio": float(ratio)})
             sub = sub.dropna(subset=["Close"])
             if sub.empty:
                 continue
@@ -157,6 +165,12 @@ def fetch_prices(cfg, codes):
         g.sort_values("code")[["date", "code", "close", "volume"]].to_csv(p, index=False)
         n += 1
     log.info("株価: %d 日分を保存（%d 銘柄）", n, allp.code.nunique())
+    if splits:
+        cur = pd.read_csv(SPLITS_CSV, dtype=str) if os.path.exists(SPLITS_CSV) else pd.DataFrame(columns=["code", "date", "ratio"])
+        new = pd.DataFrame(splits).astype(str)
+        allsp = pd.concat([cur, new]).drop_duplicates(["code", "date"], keep="last").sort_values(["date", "code"])
+        allsp.to_csv(SPLITS_CSV, index=False)
+        log.info("株式分割: %d 件を記録（合計 %d 件）", len(new), len(allsp))
 
 
 def fetch_shares(cfg, codes, watch):

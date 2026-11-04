@@ -8,7 +8,17 @@ import shutil
 import pandas as pd
 
 from common import (log, now_jst, normalize_code, MARGIN_DIR, PRICE_DIR, LISTED_CSV, NIKKEI_CSV,
-                    SHARES_CSV, ALERT_DIR, SITE_SRC, SITE_OUT)
+                    SHARES_CSV, ALERT_DIR, SITE_SRC, SITE_OUT, META_CSV, SPLITS_CSV)
+
+SHARE_COLS = ["b", "s", "bs", "ss", "bg", "sg"]
+
+
+def load_splits():
+    if not os.path.exists(SPLITS_CSV):
+        return pd.DataFrame(columns=["code", "date", "ratio"])
+    sp = pd.read_csv(SPLITS_CSV, dtype={"code": str, "date": str})
+    sp["ratio"] = sp["ratio"].astype(float)
+    return sp[sp.ratio > 0]
 
 # 変化を計算する項目: 制度/一般/合計倍率, 制度/一般 買残・売残, 合計 買残・売残
 CHG_KEYS = ["rs", "rg", "ra", "bs", "ss", "bg", "sg", "b", "s"]
@@ -31,6 +41,11 @@ def load_margin():
     m = pd.concat(frames, ignore_index=True)
     m = m.rename(columns={"buy_std": "bs", "sell_std": "ss", "buy_gen": "bg", "sell_gen": "sg",
                           "buy": "b", "sell": "s", "buy_ratio": "br", "sell_ratio": "sr", "lend_type": "lt"})
+    # 株式分割の調整: 権利落ち日より前の残高株数 × 分割比率（金額・倍率は調整不要）
+    for _, sp in load_splits().iterrows():
+        mask = (m.code == sp.code) & (m.date < sp.date)
+        if mask.any():
+            m.loc[mask, SHARE_COLS] = (m.loc[mask, SHARE_COLS].astype(float) * sp.ratio).round()
     m["rs"] = _ratio(m.bs, m.ss)
     m["rg"] = _ratio(m.bg, m.sg)
     m["ra"] = _ratio(m.b, m.s)
@@ -128,7 +143,9 @@ def compute(settings):
         # 容量削減: 値の無い項目は省略（画面側は「―」表示）
         rows.append({k: v for k, v in rec.items() if v is not None and v is not False and v != ""})
 
+    pub = dict(pd.read_csv(META_CSV, dtype=str).dropna().values) if os.path.exists(META_CSV) else {}
     status = {"updated": now_jst().strftime("%Y-%m-%d %H:%M"), "latest": d0, "prev": d1, "week": d5,
+              "published": pub,
               "n_days": len(dates), "first": dates[0],
               "price_date": pr.date.max() if not pr.empty else None, "n_shares": len(shares)}
     return rows, status, m, pr
@@ -160,14 +177,22 @@ def build_site(rows, status, m, pr, settings, errors):
     if m.empty:
         return
     price_hist = {c: g for c, g in pr.dropna(subset=["close"]).groupby("code")} if not pr.empty else {}
+    splits = load_splits()
     for code, g in m.sort_values("date").groupby("code"):
         h = {"d": list(g.date)}
-        for k in ["rs", "rg", "ra", "bs", "ss", "bg", "sg"]:
+        for k in ["rs", "rg", "ra", "bs", "ss", "bg", "sg", "b", "s"]:
             h[k] = [_clean(x) for x in g[k]]
+        # 金額（億円）
+        for k, col in (("vb", "val_buy"), ("vs", "val_sell"), ("vbs", "val_buy_std"), ("vss", "val_sell_std"),
+                       ("vbg", "val_buy_gen"), ("vsg", "val_sell_gen")):
+            h[k] = [None if pd.isna(x) else round(float(x) / 1e8, 2) for x in g[col]]
+        # 残高の基準日（申込日）の終値
         if code in price_hist:
-            ph = price_hist[code]
-            h["pd"] = list(ph.date)
-            h["pc"] = [_clean(x) for x in ph.close]
+            pc = dict(zip(price_hist[code].date, price_hist[code].close))
+            h["px"] = [_clean(pc.get(d)) for d in g.date]
+        sp = splits[(splits.code == code) & (splits.date > g.date.iloc[0])]
+        if len(sp):
+            h["splits"] = [{"date": a, "ratio": float(b)} for a, b in zip(sp.date, sp.ratio)]
         with open(os.path.join(hd, "%s.json" % code), "w", encoding="utf-8") as f:
             json.dump(h, f, separators=(",", ":"))
     log.info("サイト生成: %d 銘柄（最新 %s、蓄積 %d 日）", len(rows), status.get("latest"), status.get("n_days", 0))
