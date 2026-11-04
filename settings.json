@@ -1,0 +1,41 @@
+{
+  "_説明": "ユーザーの依頼でClaudeが編集する設定ファイル。ウォッチ銘柄・通知条件・各種パラメータ。",
+
+  "watchlist": [
+    {"code": "7203", "memo": "トヨタ自動車"}
+  ],
+
+  "notify": {
+    "enabled": true,
+    "_説明": "通知先。ntfyのトピック名はリポジトリのSecret NTFY_TOPIC に保存（公開リポジトリのためここには書かない）",
+    "max_items_per_message": 15
+  },
+
+  "watch_alerts": {
+    "_説明": "ウォッチ銘柄の通知条件（前日比）。いずれかに当てはまれば通知",
+    "rules": [
+      {"name": "制度信用倍率", "metric": "rs_pct1", "abs_gte": 10},
+      {"name": "制度買残", "metric": "bs_pct1", "abs_gte": 20},
+      {"name": "制度売残", "metric": "ss_pct1", "abs_gte": 20}
+    ]
+  },
+
+  "market_alerts": {
+    "_説明": "全銘柄の通知条件（前週比）。足切り条件を満たす銘柄のみ対象",
+    "min_market_cap_oku": 100,
+    "min_balance_shares": 10000,
+    "rules": [
+      {"name": "制度信用倍率 急変", "metric": "rs_pct5", "abs_gte": 30},
+      {"name": "制度売残 急増", "metric": "ss_pct5", "gte": 50},
+      {"name": "制度買残 急増", "metric": "bs_pct5", "gte": 50}
+    ]
+  },
+
+  "data": {
+    "price_history_period": "1y",
+    "shares_refresh_per_day": 800,
+    "shares_refresh_days": 30,
+    "listed_refresh_days": 7,
+    "nikkei_refresh_days": 7
+  }
+}

@@ -1,0 +1,67 @@
+name: daily-update
+
+on:
+  schedule:
+    - cron: "0 10 * * 1-5"    # 平日 19:00 JST（JPX公表 16:00頃の後）
+    - cron: "30 12 * * 1-5"   # 平日 21:30 JST（取りこぼし時の再試行。取得済みなら何もしない）
+  workflow_dispatch:           # 手動実行（Actions タブ → Run workflow）
+  push:
+    branches: [main]
+    paths: ["site/**", "settings.json", "app/build.py"]   # 画面・設定の変更時は取得せずに再公開
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: daily-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: app/requirements.txt
+
+      - run: pip install -r app/requirements.txt
+
+      - name: 取得・計算・通知・サイト生成
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TZ: Asia/Tokyo
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            python app/run.py --no-fetch --no-notify
+          else
+            python app/run.py
+          fi
+
+      - name: 蓄積データをコミット
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "jpx-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if ! git diff --cached --quiet; then
+            git commit -m "data: $(TZ=Asia/Tokyo date +%F_%H%M)"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

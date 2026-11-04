@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="信用残">
+<meta name="theme-color" content="#fcfcfb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>信用残トラッカー</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f2f2f0;--surface:#fcfcfb;--line:#e4e3df;--grid:#ecebe7;
+  --t1:#0b0b0b;--t2:#52514e;--t3:#8d8c85;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;
+  --up:#d1242f;--down:#1a7f37;--accent:#2a78d6;--chip:#e9e8e4;--star:#d99a00;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root{
+  color-scheme:dark;
+  --bg:#121211;--surface:#1c1c1b;--line:#2f2e2c;--grid:#282826;
+  --t1:#f0efec;--t2:#c3c2b7;--t3:#8d8c85;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;
+  --up:#ff6b6b;--down:#4cc38a;--accent:#3987e5;--chip:#2a2a28;--star:#f0b429;
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--t1);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI","Meiryo",sans-serif;font-size:15px}
+body{padding-bottom:calc(64px + var(--safe-b))}
+.wrap{max-width:720px;margin:0 auto;padding:0 12px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 10px) 0 8px}
+header .wrap{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+h1{font-size:22px;margin:0;font-weight:700}
+.sub{font-size:11px;color:var(--t2)}
+.err{background:#fff4e5;color:#7a4b00;border-radius:10px;padding:8px 10px;font-size:12px;margin:6px 0}
+@media (prefers-color-scheme:dark){.err{background:#3a2a10;color:#f5d08a}}
+nav.tab{position:fixed;bottom:0;left:0;right:0;z-index:10;background:var(--surface);border-top:1px solid var(--line);display:flex;padding-bottom:var(--safe-b)}
+nav.tab a{flex:1;text-align:center;padding:8px 0 6px;color:var(--t3);text-decoration:none;font-size:10px}
+nav.tab a .i{display:block;font-size:20px;line-height:24px}
+nav.tab a.on{color:var(--accent);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
+.wc{display:block;color:inherit;text-decoration:none}
+.wc .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.nm{font-weight:700;font-size:16px;line-height:1.3}
+.cd{color:var(--t2);font-size:12px;margin-top:2px}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:6px;background:var(--chip);color:var(--t2);margin-left:4px;vertical-align:1px}
+.big{font-size:28px;font-weight:700;line-height:1.1;text-align:right;font-variant-numeric:tabular-nums}
+.big small{font-size:11px;color:var(--t2);font-weight:500;display:block}
+.row{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--t2)}
+.row b{color:var(--t1);font-weight:600;font-variant-numeric:tabular-nums}
+.spark{height:44px;margin-top:6px}
+.up{color:var(--up)!important}.down{color:var(--down)!important}.mut{color:var(--t3)}
+.empty{color:var(--t2);text-align:center;padding:40px 10px;font-size:14px;line-height:1.8}
+input.search{width:100%;font-size:17px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--t1);margin:6px 0}
+.list a{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--grid);color:inherit;text-decoration:none}
+.list .l{min-width:0}.list .l .nm{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.list .r b{font-size:16px}.list .r div{font-size:11px;color:var(--t2)}
+.rk{color:var(--t3);font-size:12px;width:22px;flex:none}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--t1);padding:7px 12px;border-radius:18px;font-size:13px;white-space:nowrap}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+details.flt{margin:4px 0 6px}
+details.flt summary{font-size:13px;color:var(--accent);padding:4px 0;cursor:pointer}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.fgrid label{font-size:11px;color:var(--t2);display:flex;flex-direction:column;gap:3px}
+select,.fgrid input{font-size:15px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--t1);width:100%}
+.seg{display:flex;background:var(--chip);border-radius:10px;padding:2px;margin:6px 0}
+.seg button{flex:1;border:0;background:transparent;color:var(--t2);padding:7px 0;border-radius:8px;font-size:13px}
+.seg button.on{background:var(--surface);color:var(--t1);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.back{color:var(--accent);text-decoration:none;font-size:15px;display:inline-block;padding:6px 0}
+.dh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.starbtn{border:1px solid var(--line);background:var(--surface);color:var(--t1);border-radius:18px;padding:6px 12px;font-size:13px;white-space:nowrap}
+.starbtn.on{color:var(--star);border-color:var(--star)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 11px}
+.kpi .k{font-size:11px;color:var(--t2)}.kpi .v{font-size:20px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:11px;color:var(--t2);margin-top:2px}
+.ch h3{font-size:14px;margin:0 0 4px}
+.cv{position:relative;height:210px}
+.cv svg{display:block;width:100%;height:100%;touch-action:pan-y}
+.lg{display:flex;gap:12px;font-size:11px;color:var(--t2);flex-wrap:wrap;margin-bottom:2px}
+.lg i,.tip i{display:inline-block;width:12px;height:2px;vertical-align:middle;margin-right:4px}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11px;box-shadow:0 2px 10px rgba(0,0,0,.15);white-space:nowrap;display:none;z-index:2}
+.tip .d{color:var(--t2);margin-bottom:2px}
+.note{font-size:11px;color:var(--t3);margin-top:4px}
+.al h3{font-size:15px;margin:0 0 6px}
+.al .sec{font-size:12px;color:var(--t2);margin:8px 0 2px}
+.help p,.help li{font-size:14px;line-height:1.75;color:var(--t2)}
+.help b{color:var(--t1)}
+.help h3{font-size:15px;margin:18px 0 4px}
+.more{display:block;width:100%;margin:10px 0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--accent);font-size:14px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1 id="title">ウォッチ</h1><span class="sub" id="upd"></span></div></header>
+<main class="wrap" id="app"><div class="empty">読み込み中…</div></main>
+<nav class="tab" id="tabs">
+  <a href="#watch" data-t="watch"><span class="i">★</span>ウォッチ</a>
+  <a href="#search" data-t="search"><span class="i">⌕</span>検索</a>
+  <a href="#rank" data-t="rank"><span class="i">≡</span>ランキング</a>
+  <a href="#alerts" data-t="alerts"><span class="i">◔</span>通知</a>
+  <a href="#help" data-t="help"><span class="i">?</span>見方</a>
+</nav>
+<script>
+"use strict";
+// ================= データ =================
+let S={}, ROWS=[], BY={}, ALERTS=[];
+const HIST={};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/\s+/g,'');
+const N=v=>v==null?'<span class="mut">―</span>':Number(v).toLocaleString('ja-JP',{maximumFractionDigits:2});
+const R=v=>v==null?'<span class="mut">―</span>':Number(v).toFixed(2);
+const PX=v=>v==null?'<span class="mut">―</span>':Number(v).toLocaleString('ja-JP',{maximumFractionDigits:1});
+const cls=v=>v==null?'':v>0?'up':v<0?'down':'';
+const D=(v,dig=2)=>v==null?'<span class="mut">―</span>':`<span class="${cls(v)}">${v>0?'+':''}${Number(v).toFixed(dig)}</span>`;
+const P=v=>v==null?'<span class="mut">―</span>':`<span class="${cls(v)}">${v>0?'+':''}${Number(v).toFixed(1)}%</span>`;
+const MC=r=>r.mc==null?'<span class="mut">―</span>':(r.mce?'≈':'')+(r.mc>=10000?(r.mc/10000).toFixed(2)+'兆':Math.round(r.mc).toLocaleString()+'億');
+const RT={rs:'制度',rg:'一般',ra:'合計'};
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ローカルのウォッチ（この端末だけ）
+const LKEY='jpxm_local_watch';
+let LOCAL=[];
+try{LOCAL=JSON.parse(localStorage.getItem(LKEY)||'[]')}catch(e){}
+const saveLocal=()=>{try{localStorage.setItem(LKEY,JSON.stringify(LOCAL))}catch(e){}};
+const ghWatch=()=>(S.watch||[]).map(w=>w.code);
+const isGH=c=>ghWatch().includes(c);
+const isLocal=c=>LOCAL.includes(c);
+const watchCodes=()=>[...new Set([...ghWatch(),...LOCAL])];
+
+async function loadAll(){
+  const t='?v='+Date.now();
+  const [s,l,a]=await Promise.all([fetch('data/status.json'+t).then(r=>r.json()),fetch('data/latest.json'+t).then(r=>r.json()),fetch('data/alerts.json'+t).then(r=>r.json()).catch(()=>[])]);
+  S=s; ROWS=l; ALERTS=a; BY={}; ROWS.forEach(r=>{r._k=norm(r.c+' '+r.n); BY[r.c]=r;});
+  $('upd').textContent=S.latest?`${S.latest.slice(5).replace('-','/')}申込分・蓄積${S.n_days}日`:'';
+}
+async function hist(code){
+  if(HIST[code]) return HIST[code];
+  try{HIST[code]=await fetch('data/hist/'+encodeURIComponent(code)+'.json?v='+(S.updated||'')).then(r=>{if(!r.ok)throw 0;return r.json();});}
+  catch(e){HIST[code]=null;}
+  return HIST[code];
+}
+
+// ================= グラフ（SVG） =================
+function niceTicks(lo,hi,n=4){
+  if(lo===hi){lo-=1;hi+=1;}
+  const raw=(hi-lo)/n, mag=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/mag;
+  const st=(f<1.5?1:f<3?2:f<7?5:10)*mag, a=Math.floor(lo/st)*st, b=Math.ceil(hi/st)*st, t=[];
+  for(let v=a;v<=b+st/2;v+=st) t.push(+v.toFixed(10));
+  return t;
+}
+const fmtAx=v=>{const a=Math.abs(v);return a>=1e8?(v/1e8).toFixed(a>=1e9?0:1)+'億':a>=1e4?(v/1e4).toFixed(a>=1e5?0:1)+'万':v.toLocaleString('ja-JP',{maximumFractionDigits:2});};
+function lineChart(box,labels,allSets,opt={}){
+  box._hide=box._hide||new Set();
+  const sets=allSets.filter(s=>!box._hide.has(s.label));
+  const legend=allSets.length>1?'<div class="lg">'+allSets.map(s=>`<span data-lg="${s.label}" style="cursor:pointer;${box._hide.has(s.label)?'opacity:.35':''}"><i style="background:${s.color}"></i>${s.label}</span>`).join('')+'<span class="mut">（タップで表示切替）</span></div>':'';
+  box.innerHTML=legend+'<div class="cv"></div>';
+  box.querySelectorAll('[data-lg]').forEach(el=>el.onclick=()=>{const k=el.dataset.lg;box._hide.has(k)?box._hide.delete(k):(sets.length>1&&box._hide.add(k));lineChart(box,labels,allSets,opt);});
+  const cv=box.querySelector('.cv'), W=cv.clientWidth||340, H=cv.clientHeight||210;
+  const L=48,Rm=8,T=8,B=22,pw=W-L-Rm,ph=H-T-B,n=labels.length;
+  const vals=[];sets.forEach(s=>s.data.forEach(v=>{if(v!=null)vals.push(v)}));
+  if(!vals.length){cv.innerHTML='<div class="empty">データなし</div>';return;}
+  let lo=Math.min(...vals),hi=Math.max(...vals);
+  if(opt.zero)lo=Math.min(0,lo);else{const pad=(hi-lo)*.08||Math.abs(hi)*.05||1;const nn=lo>=0;lo-=pad;hi+=pad;if(nn&&lo<0)lo=0;}
+  const tk=niceTicks(lo,hi);lo=tk[0];hi=tk[tk.length-1];
+  const X=i=>L+(n<=1?pw/2:i*pw/(n-1)),Y=v=>T+ph-(v-lo)/(hi-lo)*ph;
+  const grid=css('--grid'),t2=css('--t2'),line=css('--line'),surf=css('--surface');
+  let g='';
+  tk.forEach(t=>{g+=`<line x1="${L}" x2="${W-Rm}" y1="${Y(t)}" y2="${Y(t)}" stroke="${grid}"/><text x="${L-5}" y="${Y(t)+4}" text-anchor="end" font-size="10" fill="${t2}">${fmtAx(t)}</text>`;});
+  const nx=Math.min(n,4);
+  for(let k=0;k<nx;k++){const i=nx<=1?0:Math.round(k*(n-1)/(nx-1));g+=`<text x="${X(i)}" y="${H-6}" text-anchor="${n>1&&k===0?'start':n>1&&k===nx-1?'end':'middle'}" font-size="10" fill="${t2}">${labels[i].slice(5).replace('-','/')}</text>`;}
+  g+=`<line x1="${L}" x2="${W-Rm}" y1="${T+ph}" y2="${T+ph}" stroke="${line}"/>`;
+  sets.forEach(s=>{let d='',pen=false;s.data.forEach((v,i)=>{if(v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    if(n<=30)s.data.forEach((v,i)=>{if(v!=null)g+=`<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="${s.color}" stroke="${surf}" stroke-width="1.5"/>`;});});
+  g+=`<line class="xh" x1="0" x2="0" y1="${T}" y2="${T+ph}" stroke="${t2}" stroke-dasharray="3,3" style="display:none"/>`;
+  cv.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${g}<rect x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent"/></svg><div class="tip"></div>`;
+  const svg=cv.querySelector('svg'),xh=svg.querySelector('.xh'),tip=cv.querySelector('.tip');
+  const show=cx=>{const rc=svg.getBoundingClientRect(),mx=(cx-rc.left)*W/rc.width;
+    const i=Math.max(0,Math.min(n-1,n<=1?0:Math.round((mx-L)/pw*(n-1))));
+    xh.setAttribute('x1',X(i));xh.setAttribute('x2',X(i));xh.style.display='';
+    tip.innerHTML=`<div class="d">${labels[i]}</div>`+sets.map(s=>`<div><i style="background:${s.color}"></i>${s.label}: <b>${s.data[i]==null?'―':Number(s.data[i]).toLocaleString('ja-JP',{maximumFractionDigits:2})}</b></div>`).join('');
+    tip.style.display='block';const px=X(i)*rc.width/W;tip.style.left=(px+tip.offsetWidth+14>rc.width?px-tip.offsetWidth-8:px+8)+'px';tip.style.top='4px';};
+  const hide=()=>{xh.style.display='none';tip.style.display='none';};
+  svg.addEventListener('pointermove',e=>show(e.clientX));svg.addEventListener('pointerdown',e=>show(e.clientX));
+  svg.addEventListener('pointerleave',hide);svg.addEventListener('touchend',()=>setTimeout(hide,1500));
+}
+function sparkSVG(vals,color){
+  const v=vals.filter(x=>x!=null);if(v.length<2)return '<div class="note">推移はデータが2日分たまると表示されます</div>';
+  const W=300,H=44,lo=Math.min(...v),hi=Math.max(...v),n=vals.length;
+  const X=i=>i*W/(n-1),Y=x=>H-3-(hi===lo?.5:(x-lo)/(hi-lo))*(H-6);
+  let d='',pen=false;vals.forEach((x,i)=>{if(x==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(x).toFixed(1);pen=true;});
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" width="100%"><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+// ================= 画面 =================
+const app=$('app');
+function setTab(t,title){$('title').textContent=title;[...$('tabs').children].forEach(a=>a.classList.toggle('on',a.dataset.t===t));window.scrollTo(0,0);}
+function errBox(){return (S.errors&&S.errors.length)?`<div class="err">前回の更新で一部失敗（他は更新済み）：${esc(S.errors.join(' ／ '))}</div>`:'';}
+function tags(r){return (r.nk?'<span class="tag">日経225</span>':'')+(r.sz&&/Core30|Large70/.test(r.sz)?`<span class="tag">${r.sz.replace('TOPIX ','')}</span>`:'');}
+
+// ---- ウォッチ
+async function viewWatch(){
+  setTab('watch','ウォッチ');
+  const codes=watchCodes();
+  if(!codes.length){app.innerHTML=errBox()+'<div class="empty">ウォッチ銘柄がありません。<br>「検索」から銘柄を開いて☆で追加するか、<br>Claudeに「○○をウォッチに追加して」と伝えてください。</div>';return;}
+  const s1=css('--s1');
+  app.innerHTML=errBox()+codes.map(c=>{const r=BY[c]||{c};
+    return `<a class="card wc" href="#c/${esc(c)}"><div class="top"><div><div class="nm">${esc(r.n||c)}${tags(r)}</div>
+      <div class="cd">${esc(c)} ${esc(r.s33||r.mk||'')} ${isGH(c)?'':'<span class="tag">この端末</span>'}</div></div>
+      <div class="big">${R(r.rs)}<small>制度信用倍率</small></div></div>
+      <div class="row"><span>前日 ${D(r.rs_d1)}</span><span>前週 ${D(r.rs_d5)}</span><span>一般 <b>${R(r.rg)}</b></span><span>合計 <b>${R(r.ra)}</b></span></div>
+      <div class="row"><span>株価 <b>${PX(r.px)}</b> ${P(r.pxc)}</span><span>前週比 買残 ${P(r.b_pct5)} ・ 売残 ${P(r.s_pct5)}</span></div>
+      <div id="sp_${esc(c)}"></div></a>`;}).join('');
+  for(const c of codes){const h=await hist(c);const el=$('sp_'+c);if(el&&h)el.innerHTML=sparkSVG(h.rs.slice(-60),s1);}
+}
+
+// ---- 検索
+let lastQ='';
+function viewSearch(){
+  setTab('search','検索');
+  app.innerHTML=`<input class="search" id="q" type="search" placeholder="コード・銘柄名（例：7203、トヨタ）" value="${esc(lastQ)}" autocomplete="off"><div class="list" id="res"></div>`;
+  const q=$('q'),res=$('res');
+  const run=()=>{lastQ=q.value;const k=norm(q.value);
+    if(!k){res.innerHTML='<div class="empty">銘柄コードか銘柄名を入力してください</div>';return;}
+    const hit=ROWS.filter(r=>r._k.includes(k)).sort((a,b)=>(b.c===k.toUpperCase())-(a.c===k.toUpperCase())||(b.mc||0)-(a.mc||0)).slice(0,60);
+    res.innerHTML=hit.length?hit.map(r=>`<a href="#c/${esc(r.c)}"><div class="l"><div class="nm">${esc(r.n||r.c)}</div><div class="cd">${esc(r.c)} ${esc(r.mk||'')}${tags(r)}</div></div><div class="r"><b>${R(r.rs)}</b><div>制度倍率 ${D(r.rs_d1)}</div></div></a>`).join(''):'<div class="empty">見つかりません</div>';};
+  q.addEventListener('input',run);run();setTimeout(()=>q.focus(),50);
+}
+
+// ---- ランキング
+const SELLK={rs:'ss',rg:'sg',ra:'s'};
+const PRE=[
+  {id:'up5',t:'倍率↑ 前週比',k:rt=>rt+'_pct5',dir:-1,u:'%',min:rt=>SELLK[rt]},
+  {id:'dn5',t:'倍率↓ 前週比',k:rt=>rt+'_pct5',dir:1,u:'%',min:rt=>SELLK[rt]},
+  {id:'up1',t:'倍率↑ 前日比',k:rt=>rt+'_pct1',dir:-1,u:'%',min:rt=>SELLK[rt]},
+  {id:'dn1',t:'倍率↓ 前日比',k:rt=>rt+'_pct1',dir:1,u:'%',min:rt=>SELLK[rt]},
+  {id:'sell',t:'売残 急増(週)',k:()=>'ss_pct5',dir:-1,u:'%',min:()=>'ss'},
+  {id:'buy',t:'買残 急増(週)',k:()=>'bs_pct5',dir:-1,u:'%',min:()=>'bs'},
+  {id:'low',t:'倍率が低い',k:rt=>rt,dir:1,u:'倍',min:rt=>SELLK[rt]},
+  {id:'heavy',t:'買残 上場比',k:()=>'br',dir:-1,u:'%'},
+  {id:'days',t:'買残/出来高',k:()=>'days',dir:-1,u:'日'},
+];
+const RK={p:'up5',rt:'rs',mk:'',idx:'',mc:'100',s33:'',etf:true};
+try{Object.assign(RK,JSON.parse(localStorage.getItem('jpxm_rank')||'{}'))}catch(e){}
+function viewRank(){
+  setTab('rank','ランキング');
+  const opt=(arr,v)=>arr.map(([k,t])=>`<option value="${esc(k)}" ${k===v?'selected':''}>${esc(t)}</option>`).join('');
+  const mks=[...new Set(ROWS.map(r=>r.mk).filter(Boolean))].sort().map(m=>[m,m]);
+  const secs=[...new Set(ROWS.map(r=>r.s33).filter(Boolean))].sort().map(m=>[m,m]);
+  app.innerHTML=`<div class="chips" id="pre">${PRE.map(p=>`<button class="chip ${p.id===RK.p?'on':''}" data-p="${p.id}">${p.t}</button>`).join('')}</div>
+    <div class="seg" id="rt">${Object.entries(RT).map(([k,t])=>`<button class="${k===RK.rt?'on':''}" data-rt="${k}">${t}信用</button>`).join('')}</div>
+    <details class="flt"><summary>絞り込み</summary><div class="fgrid">
+      <label>市場<select id="f_mk">${opt([['','すべて'],...mks],RK.mk)}</select></label>
+      <label>指数<select id="f_idx">${opt([['','すべて'],['nk','日経225'],['c30','TOPIX Core30'],['top100','TOPIX100'],['m400','TOPIX Mid400'],['topix','TOPIX採用']],RK.idx)}</select></label>
+      <label>時価総額（億円以上）<input id="f_mc" type="number" inputmode="numeric" value="${esc(RK.mc)}"></label>
+      <label>33業種<select id="f_s33">${opt([['','すべて'],...secs],RK.s33)}</select></label>
+      <label style="flex-direction:row;align-items:center;gap:6px;grid-column:1/3"><input id="f_etf" type="checkbox" style="width:auto" ${RK.etf?'checked':''}>ETF・REIT等を除く</label>
+    </div></details><div class="note" id="rnote"></div><div class="list" id="rl"></div>`;
+  $('pre').onclick=e=>{const b=e.target.closest('[data-p]');if(!b)return;RK.p=b.dataset.p;[...$('pre').children].forEach(x=>x.classList.toggle('on',x===b));draw();};
+  $('rt').onclick=e=>{const b=e.target.closest('[data-rt]');if(!b)return;RK.rt=b.dataset.rt;[...$('rt').children].forEach(x=>x.classList.toggle('on',x===b));draw();};
+  ['f_mk','f_idx','f_mc','f_s33','f_etf'].forEach(id=>$(id).addEventListener('input',()=>{RK.mk=$('f_mk').value;RK.idx=$('f_idx').value;RK.mc=$('f_mc').value;RK.s33=$('f_s33').value;RK.etf=$('f_etf').checked;draw();}));
+  function draw(){
+    try{localStorage.setItem('jpxm_rank',JSON.stringify(RK))}catch(e){}
+    const p=PRE.find(x=>x.id===RK.p),k=p.k(RK.rt),mc=parseFloat(RK.mc),mink=p.min?p.min(RK.rt):null;
+    let rs=ROWS.filter(r=>{
+      if(r[k]==null)return false;
+      if(mink&&(r[mink]||0)<10000)return false;
+      if(RK.etf&&!r.s33)return false;
+      if(RK.mk&&r.mk!==RK.mk)return false;
+      if(RK.s33&&r.s33!==RK.s33)return false;
+      if(!isNaN(mc)&&mc>0&&!(r.mc!=null&&r.mc>=mc))return false;
+      const sz=r.sz||'';
+      if(RK.idx==='nk'&&!r.nk)return false;if(RK.idx==='c30'&&sz!=='TOPIX Core30')return false;
+      if(RK.idx==='top100'&&!/Core30|Large70/.test(sz))return false;if(RK.idx==='m400'&&sz!=='TOPIX Mid400')return false;
+      if(RK.idx==='topix'&&!sz)return false;return true;});
+    rs.sort((a,b)=>(a[k]-b[k])*p.dir);rs=rs.slice(0,100);
+    $('rnote').textContent=mink?`${{ss:'制度売残',sg:'一般売残',s:'売残',bs:'制度買残'}[mink]}が1万株以上の銘柄が対象${!isNaN(mc)&&mc>0?'・時価総額'+mc+'億円以上':''}`:'';
+    const fmt=v=>p.u==='%'?P(v):p.u==='倍'?R(v)+'倍':Number(v).toFixed(1)+p.u;
+    $('rl').innerHTML=rs.length?rs.map((r,i)=>`<a href="#c/${esc(r.c)}"><span class="rk">${i+1}</span><div class="l" style="flex:1"><div class="nm">${esc(r.n||r.c)}</div><div class="cd">${esc(r.c)} ${esc(r.s33||r.mk||'')} ・ ${MC(r)}</div></div><div class="r"><b>${fmt(r[k])}</b><div>${RT[RK.rt]}倍率 ${R(r[RK.rt])}</div></div></a>`).join('')
+      :`<div class="empty">${S.n_days<6&&/5$/.test(k)?'前週比はデータが6営業日分たまると表示されます（現在 '+S.n_days+' 日）':S.n_days<2?'前日比はデータが2日分たまると表示されます':'該当する銘柄がありません'}</div>`;
+  }
+  draw();
+}
+
+// ---- 通知履歴
+function viewAlerts(){
+  setTab('alerts','通知');
+  const ln=it=>`<a href="#c/${esc(it.code)}"><div class="l"><div class="nm">${esc(it.name||it.code)}</div><div class="cd">${esc(it.code)} ・ ${esc(it.rule)}（${/1$/.test(it.metric)?'前日比':'前週比'}）</div></div><div class="r"><b>${P(it.value)}</b><div>制度倍率 ${R(it.rs)}</div></div></a>`;
+  const hist=ALERTS.length?ALERTS.map(a=>`<div class="card al"><h3>${esc(a.date)} 申込分</h3>
+      ${a.watch.length?'<div class="sec">ウォッチ</div><div class="list">'+a.watch.map(ln).join('')+'</div>':''}
+      ${a.market.length?'<div class="sec">全体</div><div class="list">'+a.market.slice(0,30).map(ln).join('')+'</div>'+(a.market.length>30?`<div class="note">ほか ${a.market.length-30} 件</div>`:''):''}
+      ${!a.watch.length&&!a.market.length?'<div class="note">該当なし</div>':''}</div>`).join('')
+    :'<div class="empty">まだ通知はありません</div>';
+  const rw=(S.rules&&S.rules.watch)||[],rm=(S.rules&&S.rules.market)||{};
+  const rtxt=r=>`${esc(r.name)}が${/1$/.test(r.metric)?'前日比':'前週比'} ${r.abs_gte!=null?'±'+r.abs_gte:r.gte!=null?'+'+r.gte:r.lte}%${r.abs_gte!=null?'以上変化':r.gte!=null?'以上':'以下'}`;
+  app.innerHTML=errBox()+`<div class="card help"><h3 style="margin-top:0">現在の通知条件</h3>
+    <p><b>ウォッチ銘柄</b>：${rw.map(rtxt).join('、')||'なし'}</p>
+    <p><b>全銘柄</b>（時価総額${rm.min_market_cap_oku??'-'}億円以上・対象の残高${(rm.min_balance_shares??0).toLocaleString()}株以上、ETF等除く）：${(rm.rules||[]).map(rtxt).join('、')||'なし'}</p>
+    <p class="note">条件の変更はClaudeに伝えてください。</p></div>`+hist;
+}
+
+// ---- 見方
+function viewHelp(){
+  setTab('help','見方');
+  app.innerHTML=errBox()+`<div class="help">
+  <div class="card"><p>最新データ：<b>${esc(S.latest||'-')}</b> 申込分<br>蓄積：${S.n_days||0} 日（${esc(S.first||'-')}〜）<br>株価：${esc(S.price_date||'未取得')}<br>更新：${esc(S.updated||'-')}（日本時間）<br>時価総額の取得済：${(S.n_shares||0).toLocaleString()} 銘柄</p></div>
+  <h3>信用倍率</h3><p><b>制度信用倍率</b>＝制度信用の買残÷売残（一般に「信用倍率」と呼ばれるもの）。<b>一般信用倍率</b>は証券会社独自の一般信用分、<b>合計</b>は両方を足したもの。売残0の銘柄は「―」。</p>
+  <h3>前日差・前週差</h3><p>倍率が何ポイント動いたか。前週比はデータが6営業日分たまると表示されます。ランキング・通知の％は変化率です。</p>
+  <h3>買残 上場比</h3><p>買残が上場株数の何%か（JPX公表値）。高いほど将来の返済売りの圧力が大きいとされます。</p>
+  <h3>買残/出来高</h3><p>買残 ÷ 直近20日の平均出来高。買い方の玉が出来高の何日分あるか。</p>
+  <h3>時価総額</h3><p>株価×発行済株数（Yahoo!ファイナンス）。発行済株数は毎日800銘柄ずつ取得するので、全銘柄そろうまで数日かかります。「≈」は上場比からの概算。</p>
+  <h3>ウォッチ</h3><p>Claudeに「○○をウォッチに追加して」と伝えると全端末共通で登録され、通知の対象にもなります。☆ボタンはこの端末だけの一時的な追加です（通知の対象外）。</p>
+  <h3>ホーム画面に追加</h3><p>Safariで共有ボタン → 「ホーム画面に追加」で、アプリのように使えます。</p>
+  <p class="note">信用残：日本取引所グループ（JPX）。株価：Yahoo!ファイナンス（非公式取得のため取れない日があります）。売買の判断はご自身の責任で。</p></div>`;
+}
+
+// ---- 銘柄詳細
+let PERIOD='3m';
+async function viewDetail(code){
+  setTab('',code);
+  const r=BY[code]||{c:code};
+  $('title').textContent=r.n||code;
+  const starBtn=()=>isGH(code)?'<span class="starbtn on">★ ウォッチ登録済</span>':`<button class="starbtn ${isLocal(code)?'on':''}" id="star">${isLocal(code)?'★ この端末でウォッチ中':'☆ ウォッチ'}</button>`;
+  const kpi=(k,v,s)=>`<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  app.innerHTML=`<a class="back" href="javascript:history.back()">‹ 戻る</a>
+   <div class="dh"><div><div class="nm" style="font-size:19px">${esc(r.n||code)}${tags(r)}</div><div class="cd">${esc(code)} ・ ${esc([r.mk,r.s33,r.sz,r.lt].filter(Boolean).join(' ／ '))}</div></div>${starBtn()}</div>
+   <div class="kpis">
+    ${kpi('制度信用倍率',R(r.rs),'前日 '+D(r.rs_d1)+' ／ 前週 '+D(r.rs_d5))}
+    ${kpi('一般信用倍率',R(r.rg),'前日 '+D(r.rg_d1)+' ／ 前週 '+D(r.rg_d5))}
+    ${kpi('合計信用倍率',R(r.ra),'前日 '+D(r.ra_d1)+' ／ 前週 '+D(r.ra_d5))}
+    ${kpi('株価',PX(r.px),'前日比 '+P(r.pxc))}
+    ${kpi('制度 買残',N(r.bs),'前週比 '+P(r.bs_pct5))}
+    ${kpi('制度 売残',N(r.ss),'前週比 '+P(r.ss_pct5))}
+    ${kpi('一般 買残',N(r.bg),'前週比 '+P(r.bg_pct5))}
+    ${kpi('一般 売残',N(r.sg),'前週比 '+P(r.sg_pct5))}
+    ${kpi('時価総額',MC(r),r.br!=null?'買残 上場比 '+r.br.toFixed(1)+'%':'')}
+    ${kpi('買残/出来高',r.days==null?N(null):r.days.toFixed(1)+'日','直近20日平均出来高比')}
+   </div>
+   <div class="seg" id="per">${[['1m','1か月'],['3m','3か月'],['6m','6か月'],['all','全期間']].map(([k,t])=>`<button data-k="${k}" class="${k===PERIOD?'on':''}">${t}</button>`).join('')}</div>
+   <div class="card ch"><h3>信用倍率</h3><div id="c1"></div><div class="note">売残が0の日は線が途切れます</div></div>
+   <div class="card ch"><h3>制度信用 買残・売残（株）</h3><div id="c2"></div></div>
+   <div class="card ch"><h3>一般信用 買残・売残（株）</h3><div id="c3"></div></div>
+   <div class="card ch"><h3>株価（終値）</h3><div id="c4"></div></div>`;
+  const sb=$('star');if(sb)sb.onclick=()=>{LOCAL=isLocal(code)?LOCAL.filter(x=>x!==code):[...LOCAL,code];saveLocal();viewDetail(code);};
+  const h=await hist(code);
+  const draw=()=>{
+    if(!h){$('c1').innerHTML='<div class="empty">履歴データがありません</div>';return;}
+    const days={'1m':31,'3m':92,'6m':183,'all':99999}[PERIOD];
+    const from=new Date(Date.parse(h.d[h.d.length-1])-days*864e5).toISOString().slice(0,10);
+    let i=h.d.findIndex(d=>d>=from);if(i<0)i=0;
+    const sl=a=>a.slice(i),L=sl(h.d),s1=css('--s1'),s2=css('--s2'),s3=css('--s3');
+    lineChart($('c1'),L,[{label:'制度',data:sl(h.rs),color:s1},{label:'一般',data:sl(h.rg),color:s2},{label:'合計',data:sl(h.ra),color:s3}]);
+    lineChart($('c2'),L,[{label:'買残',data:sl(h.bs),color:s1},{label:'売残',data:sl(h.ss),color:s2}],{zero:true});
+    lineChart($('c3'),L,[{label:'買残',data:sl(h.bg),color:s1},{label:'売残',data:sl(h.sg),color:s2}],{zero:true});
+    if(h.pd){let j=h.pd.findIndex(d=>d>=from);if(j<0)j=0;lineChart($('c4'),h.pd.slice(j),[{label:'終値',data:h.pc.slice(j),color:s1}]);}
+    else $('c4').innerHTML='<div class="note">株価データ未取得</div>';
+  };
+  $('per').onclick=e=>{const b=e.target.closest('[data-k]');if(!b)return;PERIOD=b.dataset.k;[...$('per').children].forEach(x=>x.classList.toggle('on',x===b));draw();};
+  draw();
+}
+
+// ================= ルーター =================
+function route(){
+  const h=location.hash.slice(1)||'watch';
+  if(h.startsWith('c/'))return viewDetail(decodeURIComponent(h.slice(2)));
+  ({watch:viewWatch,search:viewSearch,rank:viewRank,alerts:viewAlerts,help:viewHelp}[h]||viewWatch)();
+}
+window.addEventListener('hashchange',route);
+let lastW=innerWidth;window.addEventListener('resize',()=>{if(Math.abs(innerWidth-lastW)>40){lastW=innerWidth;if(location.hash.startsWith('#c/'))route();}});
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',route)}catch(e){}
+document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'&&S.updated){const old=S.updated;try{const s=await fetch('data/status.json?v='+Date.now()).then(r=>r.json());if(s.updated!==old){await loadAll();route();}}catch(e){}}});
+loadAll().then(route).catch(e=>{app.innerHTML='<div class="empty">データを読み込めませんでした。<br>しばらくしてから再読み込みしてください。</div>';});
+</script>
+</body>
+</html>
