@@ -387,10 +387,10 @@ async function viewDetail(code){
    <div class="dmeta" id="dmeta"></div>
    ${seg('s_per',[['1m','1か月'],['3m','3か月'],['6m','6か月'],['all','全期間']],DS.period)}
    <div style="display:flex;gap:8px"><div style="flex:3">${seg('s_type',[['ra','合計'],['rs','制度'],['rg','一般']],DS.type)}</div><div style="flex:2">${seg('s_unit',[['sh','株数'],['val','金額']],DS.unit)}</div></div>
-   <div class="card pn"><div class="ph"><h3>① 株価終値（円）</h3><span id="h1"></span></div><div id="p1"></div></div>
+   <div class="card pn"><div class="ph"><h3 id="t4"></h3><span id="h4"></span></div><div id="p4"></div></div>
+   <div class="card pn"><div class="ph"><h3>② 株価終値（円）</h3><span id="h1"></span></div><div id="p1"></div></div>
    <div class="card pn"><div class="ph"><h3 id="t2"></h3><span id="h2"></span></div><div id="p2"></div></div>
    <div class="card pn"><div class="ph"><h3 id="t3"></h3><span id="h3"></span></div><div id="p3"></div></div>
-   <div class="card pn"><div class="ph"><h3 id="t4"></h3><span id="h4"></span></div><div id="p4"></div></div>
    <div class="kpis">
      <div class="kpi"><div class="k">時価総額</div><div class="v">${MC(r)}</div><div class="s">${r.br!=null?'買残 上場比 '+r.br.toFixed(1)+'%':''}</div></div>
      <div class="kpi"><div class="k">買残/出来高</div><div class="v">${r.days==null?N(null):r.days.toFixed(1)+'日'}</div><div class="s">直近20日平均出来高比</div></div>
@@ -412,8 +412,8 @@ async function viewDetail(code){
     const marks=sp.map(x=>({date:x.date,label:x.date.slice(5).replace('-','/')+' 分割'}));
     const head=(arr,f,col,unitLbl)=>{let i=arr.length-1;while(i>=0&&arr[i]==null)i--;if(i<0)return '';let j=i-1;while(j>=0&&arr[j]==null)j--;
       const dv=j>=0?arr[i]-arr[j]:null;return `<span style="color:${col}">最新 <b>${f(arr[i])}</b>${dv==null?'':`（${unitLbl}${sgn(dv)}${absF(f,dv)}）`}</span>`;};
-    $('t2').textContent=`② 信用買残（${T.t}・${val?'金額':'株数'}）`;$('t3').textContent=`③ 信用売残（${T.t}・${val?'金額':'株数'}）`;
-    $('t4').textContent=`④ 信用倍率（${T.t}・買残÷売残・株数ベース）`;
+    $('t2').textContent=`③ 信用買残（${T.t}・${val?'金額':'株数'}）`;$('t3').textContent=`④ 信用売残（${T.t}・${val?'金額':'株数'}）`;
+    $('t4').textContent=`① 信用倍率（${T.t}・買残÷売残・株数ベース）`;
     $('h1').innerHTML=head(px,fYen,c1,'前営業日比 ');$('h2').innerHTML=head(b,fq,c2,'');$('h3').innerHTML=head(s_,fq,c3,'');$('h4').innerHTML=head(ra,fX,c4,'前営業日比 ');
     const cmp=v=>val?fmtAx(v)+'億':fmtAx(v);
     const P=[panelChart($('p1'),D_,px,c1,fYen,v=>v.toLocaleString('ja-JP',{maximumFractionDigits:1}),{marks,lbl:v=>Math.round(v).toLocaleString()}),
