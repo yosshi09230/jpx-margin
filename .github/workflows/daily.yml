@@ -10,7 +10,7 @@ on:
   workflow_dispatch:           # 手動実行（Actions タブ → Run workflow）
   push:
     branches: [main]
-    paths: ["site/**", "settings.json", "app/build.py"]   # 画面・設定の変更時は取得せずに再公開
+    paths: ["site/**", "settings.json", "app/**", ".github/workflows/**"]   # 画面・設定の変更時は取得せずに再公開
 
 permissions:
   contents: write
@@ -30,6 +30,8 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main   # 常に最新のmain（直前の実行で追加されたデータを含める）
 
       - uses: actions/setup-python@v5
         with:
