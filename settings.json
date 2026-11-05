@@ -65,7 +65,7 @@
   },
   "market_alerts": {
     "_説明": "全銘柄の通知条件（前週比）。足切り条件を満たす銘柄のみ対象",
-    "min_market_cap_oku": 100,
+    "min_market_cap_oku": 1000,
     "min_balance_shares": 10000,
     "rules": [
       {
