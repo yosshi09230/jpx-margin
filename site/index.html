@@ -107,6 +107,7 @@ select,.fgrid input{font-size:15px;padding:8px;border-radius:10px;border:1px sol
 <main class="wrap" id="app"><div class="empty">読み込み中…</div></main>
 <nav class="tab" id="tabs">
   <a href="#watch" data-t="watch"><span class="i">★</span>ウォッチ</a>
+  <a href="#top" data-t="top"><span class="i">▲</span>買残上位</a>
   <a href="#search" data-t="search"><span class="i">⌕</span>検索</a>
   <a href="#rank" data-t="rank"><span class="i">≡</span>ランキング</a>
   <a href="#alerts" data-t="alerts"><span class="i">◔</span>通知</a>
@@ -227,6 +228,19 @@ async function viewWatch(){
   for(const c of codes){const h=await hist(c);const el=$('sp_'+c);if(el&&h)el.innerHTML=sparkSVG(h.rs.slice(-60),s1);}
 }
 
+// ---- 買残上位
+function viewTop(){
+  setTab('top','買残上位');
+  const tr=(S.rules&&S.rules.top)||{}, n=tr.top_n||30, rules=tr.rules||[];
+  const hit=r=>rules.some(x=>{const v=r[x.metric];return v!=null&&((x.abs_gte!=null&&Math.abs(v)>=x.abs_gte)||(x.gte!=null&&v>=x.gte)||(x.lte!=null&&v<=x.lte));});
+  const rs=ROWS.filter(r=>r.tb).sort((a,b)=>a.tb-b.tb);
+  const oku=v=>v==null?'―':Math.round(v).toLocaleString()+'億円';
+  app.innerHTML=errBox()+`<div class="note" style="margin:4px 0 6px">買残金額（制度＋一般）の上位${n}銘柄・${esc((S.latest||'').slice(5).replace('-','/'))}申込分。ETF・REIT等は除く。<b class="up">●</b>は通知条件に該当（${rules.map(x=>esc(x.name)+'前日比±'+x.abs_gte+'%').join('・')}）</div>
+   <div class="list">${rs.length?rs.map(r=>`<a href="#c/${esc(r.c)}"><span class="rk">${r.tb}</span><div class="l" style="flex:1"><div class="nm">${hit(r)?'<b class="up">● </b>':''}${esc(r.n||r.c)}</div>
+     <div class="cd">${esc(r.c)} ${esc(r.s33||'')} ・ 倍率 ${R(r.ra)}（制度 ${R(r.rs)}）</div></div>
+     <div class="r"><b>${oku(r.vb)}</b><div>買残 ${P(r.b_pct1)} ／ 週 ${P(r.b_pct5)}</div><div>売残 ${P(r.s_pct1)} ／ 週 ${P(r.s_pct5)}</div></div></a>`).join(''):'<div class="empty">データがありません</div>'}</div>`;
+}
+
 // ---- 検索
 let lastQ='';
 function viewSearch(){
@@ -298,17 +312,17 @@ function viewRank(){
 // ---- 通知履歴
 function viewAlerts(){
   setTab('alerts','通知');
-  const ln=it=>`<a href="#c/${esc(it.code)}"><div class="l"><div class="nm">${esc(it.name||it.code)}</div><div class="cd">${esc(it.code)} ・ ${esc(it.rule)}（${/1$/.test(it.metric)?'前日比':'前週比'}）</div></div><div class="r"><b>${P(it.value)}</b><div>制度倍率 ${R(it.rs)}</div></div></a>`;
-  const hist=ALERTS.length?ALERTS.map(a=>`<div class="card al"><h3>${esc(a.date)} 申込分</h3>
+  const ln=it=>`<a href="#c/${esc(it.code)}"><div class="l"><div class="nm">${it.tb?it.tb+'位 ':''}${esc(it.name||it.code)}</div><div class="cd">${esc(it.code)} ・ ${esc(it.rule)}（${/1$/.test(it.metric)?'前日比':'前週比'}）</div></div><div class="r"><b>${P(it.value)}</b><div>倍率 ${R(it.ra??it.rs)}</div></div></a>`;
+  const hist=ALERTS.length?ALERTS.map(a=>{const tp=a.top||a.market||[],lab=a.top?'買残上位':'全体';return `<div class="card al"><h3>${esc(a.date)} 申込分</h3>
       ${a.watch.length?'<div class="sec">ウォッチ</div><div class="list">'+a.watch.map(ln).join('')+'</div>':''}
-      ${a.market.length?'<div class="sec">全体</div><div class="list">'+a.market.slice(0,30).map(ln).join('')+'</div>'+(a.market.length>30?`<div class="note">ほか ${a.market.length-30} 件</div>`:''):''}
-      ${!a.watch.length&&!a.market.length?'<div class="note">該当なし</div>':''}</div>`).join('')
+      ${tp.length?'<div class="sec">'+lab+'</div><div class="list">'+tp.slice(0,30).map(ln).join('')+'</div>'+(tp.length>30?`<div class="note">ほか ${tp.length-30} 件</div>`:''):''}
+      ${!a.watch.length&&!tp.length?'<div class="note">該当なし</div>':''}</div>`;}).join('')
     :'<div class="empty">まだ通知はありません</div>';
-  const rw=(S.rules&&S.rules.watch)||[],rm=(S.rules&&S.rules.market)||{};
+  const rw=(S.rules&&S.rules.watch)||[],rt=(S.rules&&S.rules.top)||{};
   const rtxt=r=>`${esc(r.name)}が${/1$/.test(r.metric)?'前日比':'前週比'} ${r.abs_gte!=null?'±'+r.abs_gte:r.gte!=null?'+'+r.gte:r.lte}%${r.abs_gte!=null?'以上変化':r.gte!=null?'以上':'以下'}`;
   app.innerHTML=errBox()+`<div class="card help"><h3 style="margin-top:0">現在の通知条件</h3>
     <p><b>ウォッチ銘柄</b>：${rw.map(rtxt).join('、')||'なし'}</p>
-    <p><b>全銘柄</b>（時価総額${rm.min_market_cap_oku??'-'}億円以上・対象の残高${(rm.min_balance_shares??0).toLocaleString()}株以上、ETF等除く）：${(rm.rules||[]).map(rtxt).join('、')||'なし'}</p>
+    <p><b>買残上位${rt.top_n??30}銘柄</b>（買残金額順・ETF等除く）：${(rt.rules||[]).map(rtxt).join('、')||'なし'}</p>
     <p class="note">条件の変更はClaudeに伝えてください。</p></div>`+hist;
 }
 
@@ -433,7 +447,7 @@ async function viewDetail(code){
 function route(){
   const h=location.hash.slice(1)||'watch';
   if(h.startsWith('c/'))return viewDetail(decodeURIComponent(h.slice(2)));
-  ({watch:viewWatch,search:viewSearch,rank:viewRank,alerts:viewAlerts,help:viewHelp}[h]||viewWatch)();
+  ({watch:viewWatch,top:viewTop,search:viewSearch,rank:viewRank,alerts:viewAlerts,help:viewHelp}[h]||viewWatch)();
 }
 window.addEventListener('hashchange',route);
 let lastW=innerWidth;window.addEventListener('resize',()=>{if(Math.abs(innerWidth-lastW)>40){lastW=innerWidth;if(location.hash.startsWith('#c/'))route();}});

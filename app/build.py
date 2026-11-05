@@ -130,6 +130,8 @@ def compute(settings):
                "px": close, "pxc": round((close / prev_close[code] - 1) * 100, 1) if close and prev_close.get(code) else None,
                "mc": mc, "mce": bool(est and mc),
                "br": _clean(r["br"]), "sr": _clean(r["sr"]),
+               "vb": round(float(r["val_buy"]) / 1e8, 1) if pd.notna(r["val_buy"]) else None,
+               "vs": round(float(r["val_sell"]) / 1e8, 1) if pd.notna(r["val_sell"]) else None,
                "days": round(r["b"] / avgvol[code], 1) if avgvol.get(code) and pd.notna(r["b"]) else None}
         for k in CHG_KEYS:
             rec[k] = _clean(r[k])
@@ -144,6 +146,11 @@ def compute(settings):
         rows.append({k: v for k, v in rec.items() if v is not None and v is not False and v != ""})
 
     pub = dict(pd.read_csv(META_CSV, dtype=str).dropna().values) if os.path.exists(META_CSV) else {}
+    # 買残金額の上位N（ETF・REIT等＝業種なし を除く）に順位 tb を付与
+    top_n = int(settings.get("top_buy_alerts", {}).get("top_n", 30))
+    ranked = sorted([x for x in rows if x.get("s33") and x.get("vb")], key=lambda x: -x["vb"])
+    for i, x in enumerate(ranked[:top_n]):
+        x["tb"] = i + 1
     status = {"updated": now_jst().strftime("%Y-%m-%d %H:%M"), "latest": d0, "prev": d1, "week": d5,
               "published": pub,
               "n_days": len(dates), "first": dates[0],
@@ -161,7 +168,7 @@ def build_site(rows, status, m, pr, settings, errors):
     status = dict(status, errors=errors,
                   watch=[{"code": normalize_code(w["code"]), "memo": w.get("memo", "")} for w in settings.get("watchlist", [])],
                   rules={"watch": settings.get("watch_alerts", {}).get("rules", []),
-                         "market": settings.get("market_alerts", {})})
+                         "top": settings.get("top_buy_alerts", {})})
     with open(os.path.join(dd, "status.json"), "w", encoding="utf-8") as f:
         json.dump(status, f, ensure_ascii=False)
     with open(os.path.join(dd, "latest.json"), "w", encoding="utf-8") as f:

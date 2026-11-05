@@ -63,25 +63,19 @@
       }
     ]
   },
-  "market_alerts": {
-    "_説明": "全銘柄の通知条件（前週比）。足切り条件を満たす銘柄のみ対象",
-    "min_market_cap_oku": 1000,
-    "min_balance_shares": 10000,
+  "top_buy_alerts": {
+    "_説明": "買残金額（制度+一般、億円）の上位N銘柄（ETF・REIT等除く、毎日入れ替え）の通知条件（前日比）。いずれかに当てはまれば通知",
+    "top_n": 30,
     "rules": [
       {
-        "name": "制度信用倍率 急変",
-        "metric": "rs_pct5",
-        "abs_gte": 30
+        "name": "買残",
+        "metric": "b_pct1",
+        "abs_gte": 5
       },
       {
-        "name": "制度売残 急増",
-        "metric": "ss_pct5",
-        "gte": 50
-      },
-      {
-        "name": "制度買残 急増",
-        "metric": "bs_pct5",
-        "gte": 50
+        "name": "売残",
+        "metric": "s_pct1",
+        "abs_gte": 20
       }
     ]
   },

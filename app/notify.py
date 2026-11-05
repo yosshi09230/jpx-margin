@@ -25,34 +25,30 @@ def _hit(v, rule):
 
 
 def evaluate(rows, settings):
+    """戻り値: (ウォッチ該当, 買残上位該当)"""
     watch_rules = settings.get("watch_alerts", {}).get("rules", [])
-    ma = settings.get("market_alerts", {})
-    out_w, out_m = [], []
+    top_rules = settings.get("top_buy_alerts", {}).get("rules", [])
+    out_w, out_t = [], []
     for r in rows:
         if r.get("w"):
             for rule in watch_rules:
                 v = r.get(rule["metric"])
                 if _hit(v, rule):
                     out_w.append(_item(r, rule, v))
-        if not r.get("s33"):   # ETF・REIT等は全体通知の対象外
-            continue
-        if r.get("mc") is None or r["mc"] < ma.get("min_market_cap_oku", 0):
-            continue
-        for rule in ma.get("rules", []):
-            base = rule["metric"].split("_")[0]
-            if (r.get(BAL_KEY.get(base, "s")) or 0) < ma.get("min_balance_shares", 0):
-                continue
-            v = r.get(rule["metric"])
-            if _hit(v, rule):
-                out_m.append(_item(r, rule, v))
+        if r.get("tb"):
+            for rule in top_rules:
+                v = r.get(rule["metric"])
+                if _hit(v, rule):
+                    out_t.append(_item(r, rule, v))
     out_w.sort(key=lambda x: -abs(x["value"]))
-    out_m.sort(key=lambda x: -abs(x["value"]))
-    return out_w, out_m
+    out_t.sort(key=lambda x: x.get("tb") or 999)
+    return out_w, out_t
 
 
 def _item(r, rule, v):
     return {"code": r["c"], "name": r.get("n", ""), "rule": rule["name"], "metric": rule["metric"],
-            "value": v, "rs": r.get("rs"), "px": r.get("px"), "pxc": r.get("pxc")}
+            "value": v, "rs": r.get("rs"), "ra": r.get("ra"), "px": r.get("px"), "pxc": r.get("pxc"),
+            "tb": r.get("tb"), "vb": r.get("vb")}
 
 
 def _line(it):
@@ -60,8 +56,10 @@ def _line(it):
     span = "前日比" if it["metric"].endswith("1") else "前週比"
     s = "%s %s %s %+.1f%%" % (it["code"], it["name"][:10], LABEL.get(base, base), it["value"])
     s += "（%s）" % span
-    if it.get("rs") is not None and base != "rs":
-        s += " 制度倍率%.2f" % it["rs"]
+    if it.get("tb"):
+        s = "%d位 " % it["tb"] + s
+    if it.get("ra") is not None and base not in ("rs", "rg", "ra"):
+        s += " 倍率%.1f" % it["ra"]
     return s
 
 
@@ -77,7 +75,7 @@ def run(rows, status, settings):
                 log.info("通知: %s 分は送信済み", latest)
                 return
     w, m = evaluate(rows, settings)
-    rec = {"date": latest, "created": now_jst().strftime("%Y-%m-%d %H:%M"), "watch": w, "market": m, "sent": False}
+    rec = {"date": latest, "created": now_jst().strftime("%Y-%m-%d %H:%M"), "watch": w, "top": m, "sent": False}
     topic = os.environ.get("NTFY_TOPIC", "").strip()
     cfg = settings.get("notify", {})
     if (w or m) and topic and cfg.get("enabled", True):
@@ -87,12 +85,12 @@ def run(rows, status, settings):
             lines.append("【ウォッチ】")
             lines += [_line(x) for x in w[:n]]
         if m:
-            lines.append("【全体】")
+            lines.append("【買残上位%d】" % settings.get("top_buy_alerts", {}).get("top_n", 30))
             lines += [_line(x) for x in m[:n]]
             if len(m) > n:
                 lines.append("…ほか %d 件（アプリで確認）" % (len(m) - n))
         d = latest[5:].replace("-", "/")
-        title = "信用残 %s分 ウォッチ%d件・全体%d件" % (d, len(w), len(m))
+        title = "信用残 %s分 ウォッチ%d件・買残上位%d件" % (d, len(w), len(m))
         try:
             import requests
             r = requests.post("https://ntfy.sh/", json={
@@ -105,6 +103,6 @@ def run(rows, status, settings):
             log.error("通知の送信に失敗: %s", e)
     else:
         rec["sent"] = bool(topic)  # 該当なし → 送信不要として完了扱い
-        log.info("通知: 該当 ウォッチ%d件・全体%d件%s", len(w), len(m), "" if topic else "（NTFY_TOPIC未設定のため送信なし）")
+        log.info("通知: 該当 ウォッチ%d件・買残上位%d件%s", len(w), len(m), "" if topic else "（NTFY_TOPIC未設定のため送信なし）")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(rec, f, ensure_ascii=False, indent=1)
