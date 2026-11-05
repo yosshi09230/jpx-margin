@@ -39,7 +39,7 @@ data/prices/YYYY/YYYYMMDD.csv      株価（終値・出来高）
 data/listed.csv, nikkei225.csv, shares.csv, state.json
 data/margin_meta.csv     申込日ごとの公表日（PDF見出しから）
 data/splits.csv          株式分割（yfinanceのStock Splits）。build.pyで分割前の残高株数×比率に調整
-daily.yml: 平日19:17/20:47/22:23 JST＋翌朝8:41 JST 実行（新PDFが無く処理済みなら即終了） → data をコミット → GitHub Pages に公開
+daily.yml: 平日16:07〜翌0:07 JSTと翌朝6:37〜8:37 JSTに毎時実行（GitHubの定時実行は遅延・欠落が多いため。新PDFが無く処理済みなら即終了） → data をコミット → GitHub Pages に公開
 ```
 - 通知先 ntfy のトピック名はリポジトリ Secret `NTFY_TOPIC`（公開リポジトリのためファイルに書かない）。
 - `_site/` はコミットしない（Pages artifact として公開）。
